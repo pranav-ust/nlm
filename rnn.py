@@ -11,10 +11,9 @@ embed_size = 128
 hidden_size = 1024
 num_layers = 2
 num_epochs = 5
-num_samples = 1000     # number of words to be sampled
-batch_size = 20
-seq_length = 30
-learning_rate = 0.002
+batch_size = 30
+seq_length = 20
+learning_rate = 0.0025
 
 corpus = Corpus()
 word_ids = corpus.get_data("data/train.txt", batch_size)
@@ -22,6 +21,10 @@ vocab_size = len(corpus.dictionary)
 number_batches = word_ids.size(1) // seq_length
 
 class RNN(nn.Module):
+    '''
+    Multi layer LSTM, follows structure:
+    Encoder -> LSTM -> Decoder
+    '''
     def __init__(self, vocab_size, embed_size, hidden_size, num_layers, dropout = 0.5):
         super(RNN, self).__init__()
         self.drop = nn.Dropout(dropout)
@@ -39,11 +42,15 @@ class RNN(nn.Module):
 
 model = RNN(vocab_size, embed_size, hidden_size, num_layers).to(device)
 
-criterion = nn.CrossEntropyLoss()
+criterion = nn.CrossEntropyLoss() # Since we have to report perplexity
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 def repackage_hidden(h):
-    """Wraps hidden states in new Tensors, to detach them from their history."""
+    """
+    Wraps hidden states in new Tensors, to detach them from their history.
+    Input: States
+    Output Detached States
+    """
     if isinstance(h, torch.Tensor):
         return h.detach()
     else:
@@ -53,11 +60,18 @@ def repackage_hidden(h):
 # model.lstm.flatten_parameters()
 
 def get_batch(data, i, length):
+    '''
+    Slicing the batches.
+    Doesn't slow down process. Maybe I'll look into torchtext wrappers.
+    '''
     inputs = data[:, i: i + length].to(device)
     targets = data[:, (i + 1): (i + 1) + length].to(device)
     return inputs, targets
 
 def validate(model):
+    '''
+    Validation epoch, to run after every training epoch.
+    '''
     model.eval()
     eval_batch_size = 1
     states = (torch.zeros(num_layers, eval_batch_size, hidden_size).to(device),
@@ -82,9 +96,13 @@ def validate(model):
             print ('Step[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
                    .format(step, num_batches, current_loss, np.exp(current_loss)))
 
+
+###### Training Loop ####################################################
+
 try:
     for epoch in range(num_epochs):
         model.train()
+        # LSTM has 2 states!
         states = (torch.zeros(num_layers, batch_size, hidden_size).to(device),
                   torch.zeros(num_layers, batch_size, hidden_size).to(device))
 
@@ -97,10 +115,14 @@ try:
 
             model.zero_grad()
             loss.backward()
+
+            # To avoid gradient explosion
             clip_grad_norm_(model.parameters(), 0.5)
             optimizer.step()
 
             step = (i + 1) // seq_length
+
+            # Logging errors after 100th step
             if step % 100 == 0:
                 print ('Epoch [{}/{}], Step[{}/{}], Loss: {:.4f}, Perplexity: {:5.2f}'
                        .format(epoch+1, num_epochs, step, number_batches, loss.item(), np.exp(loss.item())))
@@ -111,38 +133,7 @@ except KeyboardInterrupt:
 
 torch.save(model.state_dict(), 'model.ckpt')
 
-
-# Test the model
-with torch.no_grad():
-    with open('sample.txt', 'w') as f:
-        # Set intial hidden ane cell states
-        state = (torch.zeros(num_layers, 1, hidden_size).to(device),
-                 torch.zeros(num_layers, 1, hidden_size).to(device))
-
-        # Select one word id randomly
-        prob = torch.ones(vocab_size)
-        input = torch.multinomial(prob, num_samples=1).unsqueeze(1).to(device)
-
-        for i in range(num_samples):
-            # Forward propagate RNN
-            output, state = model(input, state)
-
-            # Sample a word id
-            prob = output.exp()
-            word_id = torch.multinomial(prob, num_samples=1).item()
-
-            # Fill input with sampled word id for the next time step
-            input.fill_(word_id)
-
-            # File write
-            word = corpus.dictionary.idx2word[word_id]
-            word = '\n' if word == '<eos>' else word + ' '
-            f.write(word)
-
-            if (i+1) % 100 == 0:
-                print('Sampled [{}/{}] words and save to {}'.format(i+1, num_samples, 'sample.txt'))
-
-
+###### Testing Loop ####################################################
 
 model.load_state_dict(torch.load('model.ckpt'))
 model.lstm.flatten_parameters()
