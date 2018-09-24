@@ -6,7 +6,7 @@ This repository contains neural language model implementations trained and teste
 1. **Multi-layer LSTM with Dropout**: The link to the notebook is [here](https://github.com/pranav-ust/nlm/blob/master/notebooks/LSTM%20Language%20Model.ipynb). It receives perplexity around 80.6 on test set on default parameters.
 2. **Gated Convolutional Networks with Residual Connections**: The link to the notebook is [here](https://github.com/pranav-ust/nlm/blob/master/notebooks/Gated%20Convolutional%20Networks.ipynb). It receives perplexity around 70.9 on test set on default parameters.
 
-GCNN trains a lot faster than LSTM, due to stacked convoultions performaing parallely. However, this implementation is currently done for fixed word lengths. I am still unclear how to approach for variable lengths.
+GCNN trains a lot faster than LSTM, due to stacked convolutions performaing parallely. However, this implementation is currently done for fixed word lengths. I am still unclear how to approach for variable lengths.
 
 ## Requirements
 
