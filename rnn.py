@@ -16,7 +16,7 @@ seq_length = 20
 learning_rate = 0.0025
 
 corpus = Corpus()
-word_ids = corpus.get_data("data/train.txt", batch_size)
+word_ids = corpus.get_data("data/sanguoyanyi.txt", batch_size)
 vocab_size = len(corpus.dictionary)
 number_batches = word_ids.size(1) // seq_length
 
